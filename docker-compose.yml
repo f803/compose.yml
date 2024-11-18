@@ -1,0 +1,73 @@
+
+services:
+  nginx:
+    image: nginx:stable-alpine3.20-perl
+    container_name: nginx
+    volumes: 
+      - ./nginx:/etc/nginx/conf.d
+      - ./wordpress:/var/www/html
+    networks:
+      - nginx_wordpress
+    ports:
+      - "80:80"
+    depends_on:
+      -  wordpress
+
+  wordpress:
+    image: wordpress:6.7.0-php8.1-fpm
+    container_name: wordpress
+    networks:
+      - nginx_wordpress
+      - wordpress_db
+    environment:
+      WORDPRESS_DB_HOST: ${WORDPRESS_DB_HOST}
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
+      WORDPRESS_TABLE_PREFIX: ${WORDPRESS_TABLE_PREFIX}
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_ALLOW_MULTISITE', true);
+        define('WP_REDIS_HOST', 'redis');
+        define('WP_REDIS_PORT', 6379);
+    volumes:
+      - ./wp-redis/plugins/redis-cache:/var/www/html/wp-content/plugins/redis-cache
+      - ./wordpress:/var/www/html
+    restart: always
+    depends_on:
+      db:
+         condition: service_healthy
+
+  redis:
+    image: redis:alpine3.20
+    container_name: redis
+    volumes:
+      - ./redis/redis.conf:/data/redis.conf
+    networks:
+      - wordpress_db
+
+
+  db:
+    image: mariadb:11.5.2
+    container_name: db
+    networks:
+      - wordpress_db
+    environment:
+      MARIADB_RANDOM_ROOT_PASSWORD: ${MARIA_DB_RNDM_PASS}
+      MARIADB_DATABASE: ${WORDPRESS_DB_NAME}
+      MARIADB_USER: ${WORDPRESS_DB_USER}
+      MARIADB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      start_period: 10s
+      retries: 3
+      timeout: 5s
+
+networks:
+  nginx_wordpress:
+  wordpress_db:
+
+volumes:
+  db_data:
